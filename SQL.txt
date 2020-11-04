@@ -1,0 +1,106 @@
+
+############################### 数据清洗
+
+# SHOW COLUMNS FROM womenshoe; # 确认字段信息
+# SELECT COUNT(*) FROM womenshoe;	# 确认数据行数
+
+# 删除制造商信息
+#ALTER TABLE womenshoe DROP manufacturer;
+#ALTER TABLE womenshoe DROP manufacturerNumber;
+
+# 添加序列id
+#ALTER TABLE womenshoe ADD id INT(5) NOT NULL FIRST;
+#ALTER TABLE womenshoe MODIFY id INT PRIMARY KEY AUTO_INCREMENT;
+
+# 去重
+#DELETE FROM womenshoe WHERE id NOT IN (SELECT temp.minid FROM (SELECT MIN(id) AS minid FROM womenshoe GROUP BY shoeid,colors,dateupdated,prices_amountmin,prices_amountmax,prices_condition,prices_issale,prices_size,sizes) AS temp);
+#SELECT COUNT(*) FROM womenshoe;	# 确认数据行数
+
+# 合并 prices_size + sizes = shoesize
+#ALTER TABLE womenshoe ADD shoesize VARCHAR(255);
+#UPDATE womenshoe SET shoesize = CONCAT(IFNULL(prices_size,''),IFNULL(sizes,''));
+#ALTER TABLE womenshoe DROP prices_size;
+#ALTER TABLE womenshoe DROP sizes;
+
+# 检测 prices_amountMax 与 prices_amountMin 是否都相等
+#SELECT SUM(IF(prices_amountMax=prices_amountmin,0,1)) FROM womenshoe; # 646>0 有不等
+
+# 去除旧鞋条目
+#SELECT prices_condition,COUNT(*) FROM womenshoe GROUP BY prices_condition;
+#DELETE FROM womenshoe WHERE prices_condition='Pre-owned';
+
+# 检查货币单位
+#SELECT prices_currency, COUNT(*) FROM womenshoe GROUP BY prices_currency;		# 美元最多，换算成美元
+#UPDATE womenshoe SET prices_amountmin=0.72*prices_amountmin WHERE prices_currency='AUD';
+#UPDATE womenshoe SET prices_amountmax=0.72*prices_amountmax WHERE prices_currency='AUD';
+#UPDATE womenshoe SET prices_amountmin=0.76*prices_amountmin WHERE prices_currency='CAD';
+#UPDATE womenshoe SET prices_amountmax=0.76*prices_amountmax WHERE prices_currency='CAD';
+#UPDATE womenshoe SET prices_amountmin=1.18*prices_amountmin WHERE prices_currency='EUR';
+#UPDATE womenshoe SET prices_amountmax=1.18*prices_amountmax WHERE prices_currency='EUR';
+#UPDATE womenshoe SET prices_amountmin=1.3*prices_amountmin WHERE prices_currency='GBP';
+#UPDATE womenshoe SET prices_amountmax=1.3*prices_amountmax WHERE prices_currency='GBP';
+#UPDATE womenshoe SET prices_currency='USD' WHERE prices_currency!='USD';
+
+# merchant补充
+#UPDATE womenshoe SET prices_merchant = substring_index(substring_index(merchants,'"name":"',-1),'"',1) WHERE ISNULL(prices_merchant) AND merchants IS NOT NULL;
+
+#SELECT COUNT(*) FROM womenshoe;	# 确认数据行数
+
+
+############################### 数据处理分析
+
+# 价格分布
+#SELECT COUNT(*) FROM womenshoe WHERE ISNULL(prices_amountmax) AND ISNULL(prices_amountmin); # 0 无Null值
+#SELECT SUM(CASE WHEN (prices_amountmin+prices_amountmax)/2 <= 100 THEN 1 ELSE 0 END), SUM(CASE WHEN 100 < (prices_amountmin+prices_amountmax)/2 AND (prices_amountmin+prices_amountmax)/2 <= 500 THEN 1 ELSE 0 END), SUM(CASE WHEN 500 < (prices_amountmin+prices_amountmax)/2 AND (prices_amountmin+prices_amountmax)/2 <= 1000 THEN 1 ELSE 0 END), SUM(CASE WHEN 1000 < (prices_amountmin+prices_amountmax)/2 THEN 1 ELSE 0 END) FROM womenshoe;
+#SELECT SUM(CASE WHEN (prices_amountmin+prices_amountmax)/2 <= 100 THEN 1 ELSE 0 END)/COUNT(*), SUM(CASE WHEN 100 < (prices_amountmin+prices_amountmax)/2 AND (prices_amountmin+prices_amountmax)/2 <= 500 THEN 1 ELSE 0 END)/COUNT(*), SUM(CASE WHEN 500 < (prices_amountmin+prices_amountmax)/2 AND (prices_amountmin+prices_amountmax)/2 <= 1000 THEN 1 ELSE 0 END)/COUNT(*), SUM(CASE WHEN 1000 < (prices_amountmin+prices_amountmax)/2 THEN 1 ELSE 0 END)/COUNT(*) FROM womenshoe;
+#SELECT SUM(CASE WHEN (prices_amountmin+prices_amountmax)/2 <= 20 THEN 1 ELSE 0 END), SUM(CASE WHEN 20 < (prices_amountmin+prices_amountmax)/2 AND (prices_amountmin+prices_amountmax)/2 <= 50 THEN 1 ELSE 0 END), SUM(CASE WHEN 50 < (prices_amountmin+prices_amountmax)/2 AND (prices_amountmin+prices_amountmax)/2 <= 80 THEN 1 ELSE 0 END), SUM(CASE WHEN 80 < (prices_amountmin+prices_amountmax)/2 AND (prices_amountmin+prices_amountmax)/2 <= 100 THEN 1 ELSE 0 END) FROM womenshoe;
+
+# 售出分布
+#SELECT prices_isSale,COUNT(*),(AVG(prices_amountmin)+AVG(prices_amountmax))/2 AS 均价 FROM womenshoe GROUP BY prices_isSale;
+
+# 售出产品价格细分
+#SELECT SUM(CASE WHEN (prices_amountmin+prices_amountmax)/2 <= 100 THEN 1 ELSE 0 END), SUM(CASE WHEN 100 < (prices_amountmin+prices_amountmax)/2 AND (prices_amountmin+prices_amountmax)/2 <= 500 THEN 1 ELSE 0 END), SUM(CASE WHEN 500 < (prices_amountmin+prices_amountmax)/2 AND (prices_amountmin+prices_amountmax)/2 <= 1000 THEN 1 ELSE 0 END), SUM(CASE WHEN 1000 < (prices_amountmin+prices_amountmax)/2 THEN 1 ELSE 0 END) FROM womenshoe WHERE prices_isSale='TRUE';
+#SELECT SUM(CASE WHEN (prices_amountmin+prices_amountmax)/2 <= 20 THEN 1 ELSE 0 END), SUM(CASE WHEN 20 < (prices_amountmin+prices_amountmax)/2 AND (prices_amountmin+prices_amountmax)/2 <= 50 THEN 1 ELSE 0 END), SUM(CASE WHEN 50 < (prices_amountmin+prices_amountmax)/2 AND (prices_amountmin+prices_amountmax)/2 <= 80 THEN 1 ELSE 0 END), SUM(CASE WHEN 80 < (prices_amountmin+prices_amountmax)/2 AND (prices_amountmin+prices_amountmax)/2 <= 100 THEN 1 ELSE 0 END) FROM womenshoe WHERE prices_isSale='TRUE';
+
+# 颜色偏好
+#SELECT colors, COUNT(*), COUNT(*)/13699, SUM(CASE WHEN prices_isSale='TRUE' THEN 1 ELSE 0 END) AS 售出数, SUM(CASE WHEN prices_isSale='TRUE' THEN 1 ELSE 0 END)/COUNT(*) AS 售出比 FROM womenshoe GROUP BY colors ORDER BY COUNT(*) DESC;
+#SELECT COUNT(*), COUNT(*)/13699, SUM(CASE WHEN prices_isSale='TRUE' THEN 1 ELSE 0 END) AS 售出数, SUM(CASE WHEN prices_isSale='TRUE' THEN 1 ELSE 0 END)/COUNT(*) AS 售出比, (AVG(prices_amountmin)+AVG(prices_amountmax))/2 AS 均价, (SUM(CASE WHEN prices_isSale='TRUE' THEN prices_amountMin ELSE 0 END)+SUM(CASE WHEN prices_isSale='TRUE' THEN prices_amountMax ELSE 0 END))/2/SUM(CASE WHEN prices_isSale='TRUE' THEN 1 ELSE 0 END) AS 售出均价 FROM womenshoe WHERE colors LIKE '%Purple%';
+
+# 材质偏好
+#ALTER TABLE womenshoe ADD material VARCHAR(255);
+# 为分辨大小写，更改features的字符类型
+#ALTER TABLE womenshoe MODIFY COLUMN features TEXT BINARY CHARACTER SET utf8 COLLATE utf8_bin DEFAULT NULL;
+#SELECT COUNT(*) FROM womenshoe WHERE features Like binary('%Material","value":["%');		# 14972 条
+#UPDATE womenshoe SET material = SUBSTRING_INDEX(SUBSTRING_INDEX(features,binary('Material","value":["'),-1),binary('"]'),1) WHERE features Like binary('%Material","value":["%');
+
+# 材质分布
+#SELECT material, COUNT(*), COUNT(*)/14972 FROM womenshoe GROUP BY material ORDER BY COUNT(*) DESC; 
+# 材质售出情况
+#SELECT COUNT(*), COUNT(*)/14972, SUM(CASE WHEN prices_isSale='TRUE' THEN 1 ELSE 0 END) AS 售出数, SUM(CASE WHEN prices_isSale='TRUE' THEN 1 ELSE 0 END)/COUNT(*) AS 售出比, (AVG(prices_amountmin)+AVG(prices_amountmax))/2 AS 均价, (SUM(CASE WHEN prices_isSale='TRUE' THEN prices_amountMin ELSE 0 END)+SUM(CASE WHEN prices_isSale='TRUE' THEN prices_amountMax ELSE 0 END))/2/SUM(CASE WHEN prices_isSale='TRUE' THEN 1 ELSE 0 END) AS 售出均价 FROM womenshoe WHERE material='Lace';
+
+# 处理鞋码
+#UPDATE womenshoe SET shoesize=REPLACE(shoesize,'42','10') WHERE shoesize LIKE '%42%';
+# 售出的鞋码
+#SELECT COUNT(*) FROM womenshoe WHERE prices_isSale='TRUE' AND shoesize='13';
+
+# 品牌分布
+#SELECT brand, COUNT(*),SUM(CASE WHEN prices_isSale='TRUE' THEN 1 ELSE 0 END) FROM womenshoe GROUP BY brand ORDER BY COUNT(*) DESC;
+
+# 每个品牌最小、最大、平均价格
+#SELECT brand, COUNT(*) AS 数量, MIN(prices_amountmin) AS 最低价, MAX(prices_amountmax) AS 最高价, (AVG(prices_amountmin)+AVG(prices_amountmax))/2 AS 平均价 FROM womenshoe GROUP BY brand ORDER BY 平均价 DESC LIMIT 100; 
+
+# 哪些品牌价格最高
+#SELECT brand, COUNT(*) AS 数量, MIN(prices_amountmin) AS 最低价, MAX(prices_amountmax) AS 最高价 FROM womenshoe GROUP BY brand ORDER BY 最高价 DESC, 最低价 DESC LIMIT 100;
+
+# 品牌售出分布
+#SELECT brand, COUNT(*), MIN(prices_amountmin) AS 最低价, MAX(prices_amountmax) AS 最高价, (AVG(prices_amountmin)+AVG(prices_amountmax))/2 AS 售出均价 FROM womenshoe WHERE prices_isSale='TRUE' GROUP BY brand ORDER BY COUNT(*) DESC;
+
+# 品牌和材质
+#SELECT material, COUNT(*)/(SELECT COUNT(*) FROM womenshoe WHERE brand='MUK LUKS') FROM womenshoe WHERE brand='MUK LUKS' GROUP BY material ORDER BY COUNT(*) DESC;
+
+# 网站销售情况
+#SELECT prices_merchant, COUNT(*),SUM(CASE WHEN prices_isSale='TRUE' THEN 1 ELSE 0 END) AS 销售数, SUM(CASE WHEN prices_isSale='TRUE' THEN 1 ELSE 0 END)/COUNT(*) AS 销售比 FROM womenshoe GROUP BY prices_merchant ORDER BY COUNT(*) DESC;
+
+# 网站和价格
+#SELECT MIN(prices_amountMin), MAX(prices_amountMax), (AVG(prices_amountmin)+AVG(prices_amountmax))/2 AS 均价, SUM(CASE WHEN prices_isSale='TRUE' THEN 1 ELSE 0 END)/COUNT(*) AS 销售比, (SUM(CASE WHEN prices_isSale='TRUE' THEN prices_amountMin ELSE 0 END)+SUM(CASE WHEN prices_isSale='TRUE' THEN prices_amountMax ELSE 0 END))/2/SUM(CASE WHEN prices_isSale='TRUE' THEN 1 ELSE 0 END) AS 售出均价 FROM womenshoe WHERE prices_merchant LIKE '%Ebay.com%';
+
